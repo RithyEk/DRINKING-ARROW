@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Orange Roulette Drinking Game</title>
+    <title>Random Orange Drinking Roulette</title>
     <style>
         :root {
             --bg-color: #fffaf5;
@@ -157,7 +157,7 @@
 
     <header>
         <h1>Drink Roulette</h1>
-        <p class="subtitle">Tap or Swipe Board to Spin</p>
+        <p class="subtitle">Fully Randomized Direction &amp; Spin</p>
     </header>
 
     <div class="main-container">
@@ -179,7 +179,7 @@
         </div>
     </div>
 
-    <footer>Warm Orange Edition</footer>
+    <footer>Random Orange Edition</footer>
 
     <script>
         const canvas = document.getElementById('wheelCanvas');
@@ -273,7 +273,7 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Outer stylish orange rim with warm shadow gradient
+            // Outer orange rim
             ctx.beginPath();
             ctx.arc(center, center, radius, 0, 2 * Math.PI);
             const rimGrad = ctx.createRadialGradient(center, center, radius * 0.6, center, center, radius);
@@ -286,7 +286,7 @@
             ctx.strokeStyle = '#e85d04';
             ctx.stroke();
 
-            // Slices shading & dividers
+            // Slices
             const sliceColors = ['#ffffff', '#fffaf0', '#ffffff', '#fffaf0', '#ffffff', '#fffaf0', '#ffffff', '#fffaf0'];
             for (let i = 0; i < sliceCount; i++) {
                 const startAngle = i * arcSize;
@@ -299,7 +299,6 @@
                 ctx.fillStyle = sliceColors[i];
                 ctx.fill();
 
-                // Subtle inner slice border line
                 ctx.beginPath();
                 ctx.moveTo(center, center);
                 ctx.lineTo(center + (radius - 6) * Math.cos(startAngle), center + (radius - 6) * Math.sin(startAngle));
@@ -315,18 +314,17 @@
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Draw LONGER One-Sided Orange/Amber Arrow
+            // Draw One-Sided Arrow
             ctx.save();
             ctx.translate(center, center);
             ctx.rotate(currentAngle);
 
-            // Arrow Drop Shadow
             ctx.shadowColor = 'rgba(232, 93, 4, 0.4)';
             ctx.shadowBlur = 14;
             ctx.shadowOffsetX = 0;
             ctx.shadowOffsetY = 6;
 
-            // Counterweight Tail (Longer)
+            // Counterweight Tail
             ctx.beginPath();
             ctx.rect(-140, -8, 90, 16);
             ctx.fillStyle = '#fff3e0';
@@ -335,16 +333,16 @@
             ctx.strokeStyle = '#e85d04';
             ctx.stroke();
 
-            // Central Rod (Longer)
+            // Central Rod
             ctx.beginPath();
             ctx.rect(-50, -5, 200, 10);
             ctx.fillStyle = '#ff9f43';
             ctx.fill();
             ctx.stroke();
 
-            // Large Pointy Arrowhead (Reaching close to the outer rim)
+            // Arrowhead
             ctx.beginPath();
-            ctx.moveTo(radius - 20, 0); // Extended tip
+            ctx.moveTo(radius - 20, 0);
             ctx.lineTo(radius - 85, -20);
             ctx.lineTo(radius - 85, 20);
             ctx.closePath();
@@ -352,9 +350,9 @@
             ctx.fill();
             ctx.stroke();
 
-            ctx.shadowBlur = 0; // Reset shadow for center cap
+            ctx.shadowBlur = 0;
 
-            // Center Hub Cap (Orange Gradient)
+            // Center Hub Cap
             ctx.beginPath();
             ctx.arc(0, 0, 28, 0, 2 * Math.PI);
             const hubGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, 28);
@@ -383,12 +381,16 @@
             spinCount++;
             totalSpinsEl.textContent = spinCount;
 
-            const minRevolutions = 8;
-            const extraRevolutions = Math.random() * 6;
-            const totalRotation = (minRevolutions + extraRevolutions) * 2 * Math.PI;
+            // FULLY RANDOM DIRECTION: 50% chance clockwise (1) or counter-clockwise (-1)
+            const direction = Math.random() < 0.5 ? 1 : -1;
+            
+            // Random total rotation distance (between 6 and 14 full spins + random offset)
+            const minRevolutions = 6;
+            const extraRevolutions = Math.random() * 8;
+            const totalRotation = direction * (minRevolutions + extraRevolutions) * 2 * Math.PI;
             
             const startAngle = currentAngle;
-            const duration = 3500;
+            const duration = 3500 + Math.random() * 1000; // Variable duration 3.5s - 4.5s
             const startTime = performance.now();
 
             function animate(currentTime) {
@@ -453,15 +455,17 @@
 
             const dragDuration = performance.now() - dragStartTime;
             if (Math.abs(angularVelocity) > 0.03 && dragDuration < 300) {
+                // Swipe / Flick throw respects the direction you flicked!
                 isSpinning = true;
                 hintText.textContent = "SPINNING...";
                 spinCount++;
                 totalSpinsEl.textContent = spinCount;
 
-                const momentumSpin = angularVelocity * 25 + (Math.random() * 10 + 10) * Math.sign(angularVelocity || 1);
+                const flickDirection = Math.sign(angularVelocity || 1);
+                const momentumSpin = flickDirection * (Math.abs(angularVelocity) * 25 + (Math.random() * 12 + 10));
                 const startAngle = currentAngle;
                 const startTime = performance.now();
-                const duration = 3000;
+                const duration = 3200;
 
                 function momentumAnimate(currentTime) {
                     const elapsed = currentTime - startTime;
@@ -494,6 +498,7 @@
                 }
                 requestAnimationFrame(momentumAnimate);
             } else {
+                // Tap triggers fully random direction & spin
                 triggerRandomSpin();
             }
             angularVelocity = 0;
