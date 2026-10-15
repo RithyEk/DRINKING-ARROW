@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Orange Roulette Drinking Game</title>
+    <style>
+        :root {
+            --bg-color: #fffaf5;
+            --panel-bg: #ffffff;
+            --orange-primary: #ff7700;
+            --orange-secondary: #ff9f43;
+            --orange-dark: #e85d04;
+            --text-main: #2d3748;
+            --text-sub: #718096;
+            --shadow-color: rgba(255, 119, 0, 0.2);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 50% 15%, rgba(255, 159, 67, 0.18) 0%, transparent 45%),
+                radial-gradient(circle at 80% 85%, rgba(255, 119, 0, 0.12) 0%, transparent 40%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 16px;
+            overflow: hidden;
+        }
+
+        header {
+            text-align: center;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--orange-dark);
+            text-shadow: 0 2px 10px rgba(232, 93, 4, 0.15);
+        }
+
+        p.subtitle {
+            font-size: 0.8rem;
+            color: var(--text-sub);
+            letter-spacing: 0.05em;
+            margin-top: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            width: 100%;
+            max-width: 460px;
+        }
+
+        .board-wrapper {
+            position: relative;
+            width: 380px;
+            height: 380px;
+            max-width: 92vw;
+            max-height: 92vw;
+            cursor: grab;
+            filter: drop-shadow(0 15px 30px var(--shadow-color));
+            transition: transform 0.1s ease;
+            touch-action: none;
+        }
+
+        .board-wrapper:active {
+            cursor: grabbing;
+            transform: scale(0.98);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+        }
+
+        .hint-pulse {
+            margin-top: 22px;
+            font-size: 0.85rem;
+            color: var(--orange-dark);
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .stats-panel {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 340px;
+            background: var(--panel-bg);
+            border: 2px solid rgba(255, 159, 67, 0.3);
+            border-radius: 16px;
+            padding: 12px;
+            margin-top: 18px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+        }
+
+        .stat-value {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--orange-dark);
+            margin-top: 2px;
+        }
+
+        footer {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Drink Roulette</h1>
+        <p class="subtitle">Tap or Swipe Board to Spin</p>
+    </header>
+
+    <div class="main-container">
+        <div class="board-wrapper" id="boardWrapper" title="Swipe or Tap to Spin!">
+            <canvas id="wheelCanvas" width="800" height="800"></canvas>
+        </div>
+
+        <div class="hint-pulse" id="hintText">&bull; Tap or Swipe Wheel to Spin &bull;</div>
+
+        <div class="stats-panel">
+            <div class="stat-item">
+                <div class="stat-label">Total Spins</div>
+                <div class="stat-value" id="totalSpins">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Shots Triggered</div>
+                <div class="stat-value" id="totalShots">0</div>
+            </div>
+        </div>
+    </div>
+
+    <footer>Warm Orange Edition</footer>
+
+    <script>
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const boardWrapper = document.getElementById('boardWrapper');
+        const totalSpinsEl = document.getElementById('totalSpins');
+        const totalShotsEl = document.getElementById('totalShots');
+        const hintText = document.getElementById('hintText');
+
+        const sliceCount = 8;
+        const arcSize = (2 * Math.PI) / sliceCount;
+
+        let currentAngle = 0;
+        let isSpinning = false;
+        let spinCount = 0;
+        let shotCount = 0;
+        let lastTickSection = -1;
+
+        let startTouchAngle = 0;
+        let isDragging = false;
+        let dragStartTime = 0;
+        let lastDragAngle = 0;
+        let angularVelocity = 0;
+
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playTickSound() {
+            if (!audioCtx) return;
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(450, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(180, audioCtx.currentTime + 0.04);
+
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.04);
+            } catch (e) {}
+        }
+
+        function playWinSound() {
+            if (!audioCtx) return;
+            try {
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.1);
+                osc.frequency.setValueAtTime(783.99, now + 0.2);
+                osc.frequency.setValueAtTime(1046.50, now + 0.3);
+
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(now + 0.6);
+            } catch (e) {}
+        }
+
+        function getTouchAngle(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const x = clientX - (rect.left + rect.width / 2);
+            const y = clientY - (rect.top + rect.height / 2);
+            return Math.atan2(y, x);
+        }
+
+        function drawBoard() {
+            const center = canvas.width / 2;
+            const radius = center - 24;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Outer stylish orange rim with warm shadow gradient
+            ctx.beginPath();
+            ctx.arc(center, center, radius, 0, 2 * Math.PI);
+            const rimGrad = ctx.createRadialGradient(center, center, radius * 0.6, center, center, radius);
+            rimGrad.addColorStop(0, '#ffffff');
+            rimGrad.addColorStop(0.85, '#fff3e0');
+            rimGrad.addColorStop(1, '#ff9f43');
+            ctx.fillStyle = rimGrad;
+            ctx.fill();
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#e85d04';
+            ctx.stroke();
+
+            // Slices shading & dividers
+            const sliceColors = ['#ffffff', '#fffaf0', '#ffffff', '#fffaf0', '#ffffff', '#fffaf0', '#ffffff', '#fffaf0'];
+            for (let i = 0; i < sliceCount; i++) {
+                const startAngle = i * arcSize;
+                const endAngle = (i + 1) * arcSize;
+
+                ctx.beginPath();
+                ctx.moveTo(center, center);
+                ctx.arc(center, center, radius - 6, startAngle, endAngle);
+                ctx.closePath();
+                ctx.fillStyle = sliceColors[i];
+                ctx.fill();
+
+                // Subtle inner slice border line
+                ctx.beginPath();
+                ctx.moveTo(center, center);
+                ctx.lineTo(center + (radius - 6) * Math.cos(startAngle), center + (radius - 6) * Math.sin(startAngle));
+                ctx.strokeStyle = '#ffe0b2';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+
+            // Inner decorative ring
+            ctx.beginPath();
+            ctx.arc(center, center, radius * 0.78, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#ffcc80';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw LONGER One-Sided Orange/Amber Arrow
+            ctx.save();
+            ctx.translate(center, center);
+            ctx.rotate(currentAngle);
+
+            // Arrow Drop Shadow
+            ctx.shadowColor = 'rgba(232, 93, 4, 0.4)';
+            ctx.shadowBlur = 14;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 6;
+
+            // Counterweight Tail (Longer)
+            ctx.beginPath();
+            ctx.rect(-140, -8, 90, 16);
+            ctx.fillStyle = '#fff3e0';
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#e85d04';
+            ctx.stroke();
+
+            // Central Rod (Longer)
+            ctx.beginPath();
+            ctx.rect(-50, -5, 200, 10);
+            ctx.fillStyle = '#ff9f43';
+            ctx.fill();
+            ctx.stroke();
+
+            // Large Pointy Arrowhead (Reaching close to the outer rim)
+            ctx.beginPath();
+            ctx.moveTo(radius - 20, 0); // Extended tip
+            ctx.lineTo(radius - 85, -20);
+            ctx.lineTo(radius - 85, 20);
+            ctx.closePath();
+            ctx.fillStyle = '#e85d04';
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.shadowBlur = 0; // Reset shadow for center cap
+
+            // Center Hub Cap (Orange Gradient)
+            ctx.beginPath();
+            ctx.arc(0, 0, 28, 0, 2 * Math.PI);
+            const hubGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, 28);
+            hubGrad.addColorStop(0, '#ff9f43');
+            hubGrad.addColorStop(1, '#d84315');
+            ctx.fillStyle = hubGrad;
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(0, 0, 9, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function triggerRandomSpin() {
+            if (isSpinning) return;
+            initAudio();
+            isSpinning = true;
+            hintText.textContent = "SPINNING...";
+
+            spinCount++;
+            totalSpinsEl.textContent = spinCount;
+
+            const minRevolutions = 8;
+            const extraRevolutions = Math.random() * 6;
+            const totalRotation = (minRevolutions + extraRevolutions) * 2 * Math.PI;
+            
+            const startAngle = currentAngle;
+            const duration = 3500;
+            const startTime = performance.now();
+
+            function animate(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const easeOut = 1 - Math.pow(1 - progress, 3);
+
+                currentAngle = startAngle + (totalRotation * easeOut);
+
+                const normalizedAngle = (currentAngle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+                const currentSection = Math.floor(normalizedAngle / arcSize);
+                if (currentSection !== lastTickSection) {
+                    playTickSound();
+                    lastTickSection = currentSection;
+                }
+
+                drawBoard();
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    isSpinning = false;
+                    shotCount++;
+                    totalShotsEl.textContent = shotCount;
+                    hintText.textContent = "DRINK A SHOT! 🍻";
+                    playWinSound();
+                    setTimeout(() => {
+                        if (!isSpinning) hintText.textContent = "• Tap or Swipe Wheel to Spin •";
+                    }, 2500);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        boardWrapper.addEventListener('pointerdown', (e) => {
+            if (isSpinning) return;
+            initAudio();
+            isDragging = true;
+            startTouchAngle = getTouchAngle(e);
+            lastDragAngle = startTouchAngle;
+            dragStartTime = performance.now();
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (!isDragging || isSpinning) return;
+            const currentTouchAngle = getTouchAngle(e);
+            let diff = currentTouchAngle - lastDragAngle;
+            
+            if (diff > Math.PI) diff -= 2 * Math.PI;
+            if (diff < -Math.PI) diff += 2 * Math.PI;
+
+            currentAngle += diff;
+            angularVelocity = diff;
+            lastDragAngle = currentTouchAngle;
+            drawBoard();
+        });
+
+        window.addEventListener('pointerup', (e) => {
+            if (!isDragging || isSpinning) return;
+            isDragging = false;
+
+            const dragDuration = performance.now() - dragStartTime;
+            if (Math.abs(angularVelocity) > 0.03 && dragDuration < 300) {
+                isSpinning = true;
+                hintText.textContent = "SPINNING...";
+                spinCount++;
+                totalSpinsEl.textContent = spinCount;
+
+                const momentumSpin = angularVelocity * 25 + (Math.random() * 10 + 10) * Math.sign(angularVelocity || 1);
+                const startAngle = currentAngle;
+                const startTime = performance.now();
+                const duration = 3000;
+
+                function momentumAnimate(currentTime) {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const easeOut = 1 - Math.pow(1 - progress, 3);
+
+                    currentAngle = startAngle + (momentumSpin * easeOut);
+
+                    const normalizedAngle = (currentAngle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+                    const currentSection = Math.floor(normalizedAngle / arcSize);
+                    if (currentSection !== lastTickSection) {
+                        playTickSound();
+                        lastTickSection = currentSection;
+                    }
+
+                    drawBoard();
+
+                    if (progress < 1) {
+                        requestAnimationFrame(momentumAnimate);
+                    } else {
+                        isSpinning = false;
+                        shotCount++;
+                        totalShotsEl.textContent = shotCount;
+                        hintText.textContent = "DRINK A SHOT! 🍻";
+                        playWinSound();
+                        setTimeout(() => {
+                            if (!isSpinning) hintText.textContent = "• Tap or Swipe Wheel to Spin •";
+                        }, 2500);
+                    }
+                }
+                requestAnimationFrame(momentumAnimate);
+            } else {
+                triggerRandomSpin();
+            }
+            angularVelocity = 0;
+        });
+
+        drawBoard();
+    </script>
+</body>
+</html>
